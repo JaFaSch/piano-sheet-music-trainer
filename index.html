@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Note Trainer" />
+  <meta name="theme-color" content="#ffffff" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <title>Note Trainer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #ffffff;
+      --bg2: #f5f4f0;
+      --text: #2c2c2a;
+      --text2: #888780;
+      --border: rgba(0,0,0,0.15);
+      --border2: rgba(0,0,0,0.28);
+      --green-bg: #eaf3de;
+      --green-text: #3b6d11;
+      --green-border: rgba(59,109,17,0.4);
+      --red-bg: #fcebeb;
+      --red-text: #a32d2d;
+      --red-border: rgba(163,45,45,0.4);
+      --radius: 10px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1e1e1c;
+        --bg2: #2a2a28;
+        --text: #d0cfc8;
+        --text2: #888780;
+        --border: rgba(255,255,255,0.14);
+        --border2: rgba(255,255,255,0.28);
+        --green-bg: #173404;
+        --green-text: #c0dd97;
+        --green-border: rgba(192,221,151,0.4);
+        --red-bg: #501313;
+        --red-text: #f09595;
+        --red-border: rgba(240,149,149,0.4);
+      }
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem 1rem;
+    }
+
+    #app {
+      width: 100%;
+      max-width: 420px;
+    }
+
+    #clef-label {
+      font-size: 13px;
+      color: var(--text2);
+      text-align: center;
+      margin-bottom: 8px;
+      letter-spacing: 0.04em;
+    }
+
+    #staff-wrap {
+      margin-bottom: 1.25rem;
+    }
+
+    #staff-wrap svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    #feedback {
+      height: 26px;
+      text-align: center;
+      font-size: 15px;
+      font-weight: 500;
+      margin-bottom: 0.6rem;
+    }
+
+    #attempts-wrap {
+      text-align: center;
+      font-size: 18px;
+      letter-spacing: 6px;
+      color: var(--text2);
+      margin-bottom: 1.25rem;
+      min-height: 24px;
+    }
+
+    #btn-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 7px;
+    }
+
+    .note-btn {
+      padding: 14px 0;
+      font-size: 16px;
+      font-weight: 500;
+      border: 0.5px solid var(--border2);
+      border-radius: var(--radius);
+      background: var(--bg);
+      color: var(--text);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+      touch-action: manipulation;
+    }
+
+    .note-btn:active { opacity: 0.7; transform: scale(0.95); }
+
+    .flash-green {
+      background: var(--green-bg) !important;
+      color: var(--green-text) !important;
+      border-color: var(--green-border) !important;
+    }
+
+    .flash-red {
+      background: var(--red-bg) !important;
+      color: var(--red-text) !important;
+      border-color: var(--red-border) !important;
+    }
+
+    #score-row {
+      display: flex;
+      justify-content: center;
+      gap: 2.5rem;
+      margin-top: 1.5rem;
+    }
+
+    .score-card { text-align: center; }
+    .score-label { font-size: 12px; color: var(--text2); margin-bottom: 2px; }
+    .score-val { font-size: 24px; font-weight: 500; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="clef-label"></div>
+  <div id="staff-wrap">
+    <svg id="staff-svg" viewBox="0 0 480 120" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+  <div id="feedback"></div>
+  <div id="attempts-wrap"></div>
+  <div id="btn-grid">
+    <button class="note-btn" data-note="C">C</button>
+    <button class="note-btn" data-note="D">D</button>
+    <button class="note-btn" data-note="E">E</button>
+    <button class="note-btn" data-note="F">F</button>
+    <button class="note-btn" data-note="G">G</button>
+    <button class="note-btn" data-note="A">A</button>
+    <button class="note-btn" data-note="B">B</button>
+  </div>
+  <div id="score-row">
+    <div class="score-card">
+      <div class="score-label">correct</div>
+      <div class="score-val" id="sc-correct">0</div>
+    </div>
+    <div class="score-card">
+      <div class="score-label">wrong</div>
+      <div class="score-val" id="sc-wrong">0</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const TREBLE = [
+  {note:'E',pos:0},{note:'F',pos:1},{note:'G',pos:2},{note:'A',pos:3},{note:'B',pos:4},
+  {note:'C',pos:5},{note:'D',pos:6},{note:'E',pos:7},{note:'F',pos:8},{note:'G',pos:9}
+];
+const BASS = [
+  {note:'G',pos:0},{note:'A',pos:1},{note:'B',pos:2},{note:'C',pos:3},{note:'D',pos:4},
+  {note:'E',pos:5},{note:'F',pos:6},{note:'G',pos:7},{note:'A',pos:8},{note:'B',pos:9}
+];
+
+let clef, currentNote, attemptsLeft, correct=0, wrong=0, locked=false;
+
+const svg = document.getElementById('staff-svg');
+const feedback = document.getElementById('feedback');
+const attemptsWrap = document.getElementById('attempts-wrap');
+const clefLabel = document.getElementById('clef-label');
+
+function getColor() {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? '#d0cfc8' : '#2c2c2a';
+}
+
+function drawStaff(noteObj) {
+  const c = getColor();
+  const staffTop = 28, lineGap = 10, noteR = 6;
+  let h = '';
+
+  for (let i = 0; i < 5; i++) {
+    const y = staffTop + i * lineGap;
+    h += `<line x1="40" x2="440" y1="${y}" y2="${y}" stroke="${c}" stroke-width="1.2"/>`;
+  }
+
+  if (clef === 'treble') {
+    h += `<text x="44" y="${staffTop+36}" font-size="52" fill="${c}" font-family="serif">𝄞</text>`;
+  } else {
+    h += `<text x="44" y="${staffTop+12}" font-size="34" fill="${c}" font-family="serif">𝄢</text>`;
+  }
+
+  const bottomY = staffTop + 4 * lineGap;
+  const nx = 260;
+  const ny = bottomY - (noteObj.pos * (lineGap / 2));
+
+  // ledger lines below
+  if (noteObj.pos < 0) {
+    for (let p = -2; p >= noteObj.pos - (noteObj.pos%2===0?0:1); p-=2) {
+      const ly = bottomY - p*(lineGap/2);
+      h += `<line x1="${nx-10}" x2="${nx+10}" y1="${ly}" y2="${ly}" stroke="${c}" stroke-width="1.2"/>`;
+    }
+  }
+  // ledger lines above
+  if (noteObj.pos > 8) {
+    for (let p = 10; p <= noteObj.pos+(noteObj.pos%2===0?0:1); p+=2) {
+      const ly = bottomY - p*(lineGap/2);
+      h += `<line x1="${nx-10}" x2="${nx+10}" y1="${ly}" y2="${ly}" stroke="${c}" stroke-width="1.2"/>`;
+    }
+  }
+
+  h += `<ellipse cx="${nx}" cy="${ny}" rx="${noteR}" ry="${noteR*0.78}" fill="${c}" transform="rotate(-15,${nx},${ny})"/>`;
+
+  const sd = noteObj.pos >= 4 ? 1 : -1;
+  const sy1 = ny + sd*noteR*0.78;
+  const sy2 = sy1 + sd*30;
+  const sx = nx + (sd>0 ? -noteR : noteR);
+  h += `<line x1="${sx}" x2="${sx}" y1="${sy1}" y2="${sy2}" stroke="${c}" stroke-width="1.2"/>`;
+
+  svg.innerHTML = h;
+}
+
+function updateAttempts() {
+  attemptsWrap.textContent = ['●','●','●'].map((_,i) => i < attemptsLeft ? '●' : '○').join(' ');
+}
+
+function flashBtn(note, type) {
+  const btn = document.querySelector(`.note-btn[data-note="${note}"]`);
+  if (!btn) return;
+  btn.classList.add(type === 'green' ? 'flash-green' : 'flash-red');
+  setTimeout(() => btn.classList.remove('flash-green','flash-red'), 500);
+}
+
+function nextRound() {
+  clef = Math.random() < 0.5 ? 'treble' : 'bass';
+  clefLabel.textContent = clef === 'treble' ? 'treble clef' : 'bass clef';
+  const pool = clef === 'treble' ? TREBLE : BASS;
+  currentNote = pool[Math.floor(Math.random() * pool.length)];
+  attemptsLeft = 3;
+  feedback.textContent = '';
+  feedback.style.color = '';
+  updateAttempts();
+  drawStaff(currentNote);
+  locked = false;
+  document.querySelectorAll('.note-btn').forEach(b => b.classList.remove('flash-green','flash-red'));
+}
+
+document.querySelectorAll('.note-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (locked || !currentNote) return;
+    const guess = btn.dataset.note;
+    if (guess === currentNote.note) {
+      flashBtn(guess, 'green');
+      feedback.textContent = 'correct!';
+      feedback.style.color = 'var(--green-text)';
+      correct++;
+      document.getElementById('sc-correct').textContent = correct;
+      locked = true;
+      setTimeout(nextRound, 700);
+    } else {
+      flashBtn(guess, 'red');
+      attemptsLeft--;
+      updateAttempts();
+      if (attemptsLeft <= 0) {
+        feedback.textContent = `the note was ${currentNote.note}`;
+        feedback.style.color = 'var(--red-text)';
+        wrong++;
+        document.getElementById('sc-wrong').textContent = wrong;
+        locked = true;
+        setTimeout(nextRound, 1200);
+      } else {
+        feedback.textContent = 'try again';
+        feedback.style.color = 'var(--text2)';
+      }
+    }
+  });
+});
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+
+nextRound();
+</script>
+</body>
+</html>
