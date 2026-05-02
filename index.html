@@ -47,6 +47,11 @@
     .score-card { text-align: center; }
     .score-label { font-size: 12px; color: var(--text2); margin-bottom: 2px; }
     .score-val { font-size: 24px; font-weight: 500; }
+    #mnemonics { margin-top: 1.75rem; border-top: 0.5px solid var(--border2); padding-top: 1.25rem; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .mnem-card { background: var(--bg2); border-radius: var(--radius); padding: 10px 12px; }
+    .mnem-title { font-size: 11px; color: var(--text2); margin-bottom: 4px; letter-spacing: 0.04em; }
+    .mnem-notes { font-size: 13px; font-weight: 500; margin-bottom: 3px; }
+    .mnem-phrase { font-size: 12px; color: var(--text2); line-height: 1.4; }
   </style>
 </head>
 <body>
@@ -74,6 +79,28 @@
     <div class="score-card"><div class="score-label">correct</div><div class="score-val" id="sc-correct">0</div></div>
     <div class="score-card"><div class="score-label">wrong</div><div class="score-val" id="sc-wrong">0</div></div>
   </div>
+  <div id="mnemonics">
+    <div class="mnem-card">
+      <div class="mnem-title">treble lines</div>
+      <div class="mnem-notes">E G B D F</div>
+      <div class="mnem-phrase">Every Good Boy Does Fine</div>
+    </div>
+    <div class="mnem-card">
+      <div class="mnem-title">treble spaces</div>
+      <div class="mnem-notes">F A C E</div>
+      <div class="mnem-phrase">FACE</div>
+    </div>
+    <div class="mnem-card">
+      <div class="mnem-title">bass lines</div>
+      <div class="mnem-notes">G B D F A</div>
+      <div class="mnem-phrase">Good Boys Do Fine Always</div>
+    </div>
+    <div class="mnem-card">
+      <div class="mnem-title">bass spaces</div>
+      <div class="mnem-notes">A C E G</div>
+      <div class="mnem-phrase">All Cows Eat Grass</div>
+    </div>
+  </div>
 </div>
 <script>
 const TREBLE = [
@@ -88,10 +115,9 @@ const BASS = [
   {note:'E',pos:5},{note:'F',pos:6},{note:'G',pos:7},{note:'A',pos:8},{note:'B',pos:9},
   {note:'C',pos:10},{note:'D',pos:11},{note:'E',pos:12},
 ];
- 
-// MIDI note number to note name (ignoring octave)
+
 const MIDI_NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
- 
+
 let clef, currentNote, attemptsLeft, correct=0, wrong=0, locked=false;
 const svg = document.getElementById('staff-svg');
 const feedback = document.getElementById('feedback');
@@ -99,9 +125,9 @@ const attemptsWrap = document.getElementById('attempts-wrap');
 const clefLabel = document.getElementById('clef-label');
 const midiDot = document.getElementById('midi-dot');
 const midiLabel = document.getElementById('midi-label');
- 
+
 function getCSSVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
- 
+
 function drawStaff(noteObj) {
   const c = getCSSVar('--text'), lc = getCSSVar('--ledger');
   const staffTop = 48, lineGap = 10, noteR = 6;
@@ -143,32 +169,18 @@ function drawStaff(noteObj) {
   h += `<line x1="${sx}" x2="${sx}" y1="${sy1}" y2="${sy2}" stroke="${c}" stroke-width="1.2"/>`;
   svg.innerHTML = h;
 }
- 
+
 function updateAttempts() {
   attemptsWrap.textContent = ['●','●','●'].map((_,i) => i < attemptsLeft ? '●' : '○').join(' ');
 }
- 
+
 function flashBtn(note, type) {
   const btn = document.querySelector(`.note-btn[data-note="${note}"]`);
   if (!btn) return;
   btn.classList.add(type === 'green' ? 'flash-green' : 'flash-red');
   setTimeout(() => btn.classList.remove('flash-green','flash-red'), 500);
 }
- 
-function nextRound() {
-  clef = Math.random() < 0.5 ? 'treble' : 'bass';
-  clefLabel.textContent = clef === 'treble' ? 'treble clef' : 'bass clef';
-  const pool = clef === 'treble' ? TREBLE : BASS;
-  currentNote = pool[Math.floor(Math.random() * pool.length)];
-  attemptsLeft = 3;
-  feedback.textContent = '';
-  feedback.style.color = '';
-  updateAttempts();
-  drawStaff(currentNote);
-  locked = false;
-  document.querySelectorAll('.note-btn').forEach(b => b.classList.remove('flash-green','flash-red'));
-}
- 
+
 function handleGuess(guess) {
   if (locked || !currentNote) return;
   if (guess === currentNote.note) {
@@ -196,13 +208,25 @@ function handleGuess(guess) {
     }
   }
 }
- 
-// Button clicks
+
+function nextRound() {
+  clef = Math.random() < 0.5 ? 'treble' : 'bass';
+  clefLabel.textContent = clef === 'treble' ? 'treble clef' : 'bass clef';
+  const pool = clef === 'treble' ? TREBLE : BASS;
+  currentNote = pool[Math.floor(Math.random() * pool.length)];
+  attemptsLeft = 3;
+  feedback.textContent = '';
+  feedback.style.color = '';
+  updateAttempts();
+  drawStaff(currentNote);
+  locked = false;
+  document.querySelectorAll('.note-btn').forEach(b => b.classList.remove('flash-green','flash-red'));
+}
+
 document.querySelectorAll('.note-btn').forEach(btn => {
   btn.addEventListener('click', () => handleGuess(btn.dataset.note));
 });
- 
-// MIDI setup
+
 function setMidiStatus(connected, name) {
   if (connected) {
     midiDot.className = 'connected';
@@ -212,17 +236,16 @@ function setMidiStatus(connected, name) {
     midiLabel.textContent = 'no midi device';
   }
 }
- 
+
 function onMidiMessage(event) {
   const [status, note, velocity] = event.data;
   const isNoteOn = (status & 0xf0) === 0x90 && velocity > 0;
   if (!isNoteOn) return;
   const noteName = MIDI_NOTE_NAMES[note % 12];
-  // only respond to natural notes (no sharps/flats)
   if (noteName.includes('#')) return;
   handleGuess(noteName);
 }
- 
+
 function connectMidi(access) {
   let connected = false;
   access.inputs.forEach(input => {
@@ -231,7 +254,6 @@ function connectMidi(access) {
     connected = true;
   });
   if (!connected) setMidiStatus(false);
- 
   access.onstatechange = (e) => {
     if (e.port.type === 'input') {
       if (e.port.state === 'connected') {
@@ -243,7 +265,7 @@ function connectMidi(access) {
     }
   };
 }
- 
+
 if (navigator.requestMIDIAccess) {
   navigator.requestMIDIAccess({ sysex: false }).then(
     access => connectMidi(access),
@@ -252,7 +274,7 @@ if (navigator.requestMIDIAccess) {
 } else {
   midiLabel.textContent = 'midi not supported';
 }
- 
+
 if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
 nextRound();
 </script>
