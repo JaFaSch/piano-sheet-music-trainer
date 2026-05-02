@@ -29,6 +29,10 @@
     }
     body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 1.5rem 1rem; }
     #app { width: 100%; max-width: 420px; }
+    #midi-status { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; color: var(--text2); margin-bottom: 10px; min-height: 18px; }
+    #midi-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text2); flex-shrink: 0; }
+    #midi-dot.connected { background: #3b6d11; }
+    #midi-dot.connected + #midi-label { color: #3b6d11; }
     #clef-label { font-size: 13px; color: var(--text2); text-align: center; margin-bottom: 8px; letter-spacing: 0.04em; }
     #staff-wrap { margin-bottom: 1.25rem; }
     #staff-wrap svg { width: 100%; height: auto; display: block; }
@@ -47,6 +51,10 @@
 </head>
 <body>
 <div id="app">
+  <div id="midi-status">
+    <div id="midi-dot"></div>
+    <span id="midi-label">no midi device</span>
+  </div>
   <div id="clef-label"></div>
   <div id="staff-wrap">
     <svg id="staff-svg" viewBox="0 0 480 160" xmlns="http://www.w3.org/2000/svg"></svg>
@@ -81,11 +89,16 @@ const BASS = [
   {note:'C',pos:10},{note:'D',pos:11},{note:'E',pos:12},
 ];
  
+// MIDI note number to note name (ignoring octave)
+const MIDI_NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+ 
 let clef, currentNote, attemptsLeft, correct=0, wrong=0, locked=false;
 const svg = document.getElementById('staff-svg');
 const feedback = document.getElementById('feedback');
 const attemptsWrap = document.getElementById('attempts-wrap');
 const clefLabel = document.getElementById('clef-label');
+const midiDot = document.getElementById('midi-dot');
+const midiLabel = document.getElementById('midi-label');
  
 function getCSSVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
  
@@ -156,36 +169,89 @@ function nextRound() {
   document.querySelectorAll('.note-btn').forEach(b => b.classList.remove('flash-green','flash-red'));
 }
  
-document.querySelectorAll('.note-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    if (locked || !currentNote) return;
-    const guess = btn.dataset.note;
-    if (guess === currentNote.note) {
-      flashBtn(guess, 'green');
-      feedback.textContent = 'correct!';
-      feedback.style.color = 'var(--green-text)';
-      correct++;
-      document.getElementById('sc-correct').textContent = correct;
+function handleGuess(guess) {
+  if (locked || !currentNote) return;
+  if (guess === currentNote.note) {
+    flashBtn(guess, 'green');
+    feedback.textContent = 'correct!';
+    feedback.style.color = 'var(--green-text)';
+    correct++;
+    document.getElementById('sc-correct').textContent = correct;
+    locked = true;
+    setTimeout(nextRound, 700);
+  } else {
+    flashBtn(guess, 'red');
+    attemptsLeft--;
+    updateAttempts();
+    if (attemptsLeft <= 0) {
+      feedback.textContent = `the note was ${currentNote.note}`;
+      feedback.style.color = 'var(--red-text)';
+      wrong++;
+      document.getElementById('sc-wrong').textContent = wrong;
       locked = true;
-      setTimeout(nextRound, 700);
+      setTimeout(nextRound, 1200);
     } else {
-      flashBtn(guess, 'red');
-      attemptsLeft--;
-      updateAttempts();
-      if (attemptsLeft <= 0) {
-        feedback.textContent = `the note was ${currentNote.note}`;
-        feedback.style.color = 'var(--red-text)';
-        wrong++;
-        document.getElementById('sc-wrong').textContent = wrong;
-        locked = true;
-        setTimeout(nextRound, 1200);
+      feedback.textContent = 'try again';
+      feedback.style.color = 'var(--text2)';
+    }
+  }
+}
+ 
+// Button clicks
+document.querySelectorAll('.note-btn').forEach(btn => {
+  btn.addEventListener('click', () => handleGuess(btn.dataset.note));
+});
+ 
+// MIDI setup
+function setMidiStatus(connected, name) {
+  if (connected) {
+    midiDot.className = 'connected';
+    midiLabel.textContent = name || 'piano connected';
+  } else {
+    midiDot.className = '';
+    midiLabel.textContent = 'no midi device';
+  }
+}
+ 
+function onMidiMessage(event) {
+  const [status, note, velocity] = event.data;
+  const isNoteOn = (status & 0xf0) === 0x90 && velocity > 0;
+  if (!isNoteOn) return;
+  const noteName = MIDI_NOTE_NAMES[note % 12];
+  // only respond to natural notes (no sharps/flats)
+  if (noteName.includes('#')) return;
+  handleGuess(noteName);
+}
+ 
+function connectMidi(access) {
+  let connected = false;
+  access.inputs.forEach(input => {
+    input.onmidimessage = onMidiMessage;
+    setMidiStatus(true, input.name);
+    connected = true;
+  });
+  if (!connected) setMidiStatus(false);
+ 
+  access.onstatechange = (e) => {
+    if (e.port.type === 'input') {
+      if (e.port.state === 'connected') {
+        e.port.onmidimessage = onMidiMessage;
+        setMidiStatus(true, e.port.name);
       } else {
-        feedback.textContent = 'try again';
-        feedback.style.color = 'var(--text2)';
+        setMidiStatus(false);
       }
     }
-  });
-});
+  };
+}
+ 
+if (navigator.requestMIDIAccess) {
+  navigator.requestMIDIAccess({ sysex: false }).then(
+    access => connectMidi(access),
+    () => setMidiStatus(false)
+  );
+} else {
+  midiLabel.textContent = 'midi not supported';
+}
  
 if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
 nextRound();
