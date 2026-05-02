@@ -103,17 +103,23 @@
   </div>
 </div>
 <script>
+// Treble clef: bottom line = E4 (pos 0), each pos = half step up
+// pos -1=D, pos -2=C (middle C, ledger line), pos -3=B, pos -4=A (ledger line)
 const TREBLE = [
-  {note:'C',pos:-4},{note:'D',pos:-3},
+  {note:'A',pos:-4},{note:'B',pos:-3},
+  {note:'C',pos:-2},{note:'D',pos:-1},
   {note:'E',pos:0},{note:'F',pos:1},{note:'G',pos:2},{note:'A',pos:3},{note:'B',pos:4},
   {note:'C',pos:5},{note:'D',pos:6},{note:'E',pos:7},{note:'F',pos:8},{note:'G',pos:9},
-  {note:'A',pos:10},{note:'B',pos:11},{note:'C',pos:12},
+  {note:'A',pos:10},{note:'B',pos:11},{note:'C',pos:12},{note:'D',pos:13},
 ];
+// Bass clef: bottom line = G2 (pos 0)
+// pos -1=F, pos -2=E (ledger line), pos -3=D, pos -4=C (ledger line)
 const BASS = [
-  {note:'E',pos:-4},{note:'F',pos:-3},
+  {note:'C',pos:-4},{note:'D',pos:-3},
+  {note:'E',pos:-2},{note:'F',pos:-1},
   {note:'G',pos:0},{note:'A',pos:1},{note:'B',pos:2},{note:'C',pos:3},{note:'D',pos:4},
   {note:'E',pos:5},{note:'F',pos:6},{note:'G',pos:7},{note:'A',pos:8},{note:'B',pos:9},
-  {note:'C',pos:10},{note:'D',pos:11},{note:'E',pos:12},
+  {note:'C',pos:10},{note:'D',pos:11},{note:'E',pos:12},{note:'F',pos:13},
 ];
 
 const MIDI_NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
@@ -151,6 +157,7 @@ function drawStaff(noteObj) {
   }
   const bottomY = staffTop + 4 * lineGap, nx = 270;
   const ny = bottomY - (noteObj.pos * (lineGap / 2));
+  // Solid ledger lines at even positions outside the 5-line staff (lines at -2,-4 below and 10,12 above)
   if (noteObj.pos <= -2) {
     for (let p = -2; p >= noteObj.pos; p -= 2) {
       const ly = bottomY - p*(lineGap/2);
